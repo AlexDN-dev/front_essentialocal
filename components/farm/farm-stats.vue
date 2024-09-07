@@ -1,51 +1,43 @@
 <script setup>
-import { ref, onMounted } from "vue";
+import { ref, onMounted, watch } from "vue";
+import { getStats } from "~/services/farmService";
 import Chart from "chart.js/auto";
 
-// Référence pour le canevas du graphique
 const doughnutCanvas = ref(null);
 let doughnutChartInstance = null;
-const tableData = [
-  {
-    mail: "test1@gmail.com",
-    order_number: "2",
-    average: "28,65€",
-  },
-  {
-    mail: "test1@gmail.com",
-    order_number: "2",
-    average: "28,65€",
-  },
-  {
-    mail: "test1@gmail.com",
-    order_number: "2",
-    average: "28,65€",
-  },
-  {
-    mail: "test1@gmail.com",
-    order_number: "2",
-    average: "28,65€",
-  },
-  {
-    mail: "test1@gmail.com",
-    order_number: "2",
-    average: "28,65€",
-  },
-  {
-    mail: "test1@gmail.com",
-    order_number: "2",
-    average: "28,65€",
-  },
-];
+const data = ref({});
+const tableData = ref([]);
+const nameChart = ref([]);
+const quantityChart = ref([]);
+const criticalStock = ref([]);
 
-// Données fictives pour les 5 meilleurs produits
+// Fonction pour récupérer les statistiques
+const switchTime = async (time) => {
+  data.value = await getStats(time);
+
+  // Mettre à jour les noms et quantités pour le graphique
+  nameChart.value = data.value.productsSold.map((product) => product.name);
+  quantityChart.value = data.value.productsSold.map(
+    (product) => product.quantity
+  );
+
+  criticalStock.value = data.value.lowStockProducts;
+  tableData.value = data.value.loyalCustomers;
+
+  // Si le graphique est déjà initialisé, le mettre à jour
+  if (doughnutChartInstance) {
+    updateChart();
+  }
+};
+
+// Données réactives pour le graphique
 const chartData = {
-  labels: ["Pomme", "Banane", "Orange", "Raisin", "Fraise"], // Les 5 meilleurs produits
+  labels: nameChart.value,
   datasets: [
     {
       label: "Nombre de ventes",
       backgroundColor: ["#FF6384", "#36A2EB", "#FFCE56", "#4BC0C0", "#9966FF"],
-      data: [120, 90, 80, 70, 50], // Nombre de ventes fictif pour chaque produit
+      data: quantityChart.value,
     },
   ],
 };
@@ -79,36 +71,54 @@ const initializeChart = () => {
   }
 };
 
-onMounted(() => {
+// Mettre à jour le graphique avec les nouvelles données
+const updateChart = () => {
+  doughnutChartInstance.data.labels = nameChart.value;
+  doughnutChartInstance.data.datasets[0].data = quantityChart.value;
+  doughnutChartInstance.update();
+};
+
+// Recharger le graphique lors du montage du composant
+onMounted(async () => {
+  await switchTime(0);
   initializeChart();
+  updateChart();
 });
 </script>
 
 <template>
   <div class="container statsPage">
     <el-button-group class="selectTime">
-      <el-button class="colorButton" type="primary">Ajourd'hui</el-button>
-      <el-button class="colorButton" type="primary">1 Semaine</el-button>
-      <el-button class="colorButton" type="primary">1 Mois</el-button>
-      <el-button class="colorButton" type="primary">3 Mois</el-button>
+      <el-button class="colorButton" type="primary" @click="switchTime(0)"
+        >Aujourd'hui</el-button
+      >
+      <el-button class="colorButton" type="primary" @click="switchTime(1)"
+        >1 Semaine</el-button
+      >
+      <el-button class="colorButton" type="primary" @click="switchTime(2)"
+        >1 Mois</el-button
+      >
+      <el-button class="colorButton" type="primary" @click="switchTime(3)"
+        >3 Mois</el-button
+      >
     </el-button-group>
     <section class="today">
       <div class="statsContainer">
         <div class="stats container">
           <p>Nbr de commandes</p>
-          <span>3</span>
+          <span>{{ data.totalOrders }}</span>
         </div>
         <div class="stats container">
           <p>Chiffre d'affaire</p>
-          <span>54,97€</span>
+          <span>{{ data.totalRevenue }}€</span>
         </div>
         <div class="stats container">
           <p>Montant moyen</p>
-          <span>17,58€</span>
+          <span>{{ data.averageAmount }}€</span>
         </div>
         <div class="stats container">
           <p>Temps de préparation</p>
-          <span>37,12 min</span>
+          <span>{{ data.averagePreparationTime }} min</span>
         </div>
       </div>
     </section>
@@ -121,20 +131,18 @@ onMounted(() => {
         <h3>Les stocks critiques</h3>
         <p>Ici sont affichés les produits avec moins de 5 stocks</p>
         <div>
-          <p style="margin: 3px">Product57 (3 restants)</p>
-          <p style="margin: 3px">Product58 (3 restants)</p>
-          <p style="margin: 3px">Product54 (3 restants)</p>
-          <p style="margin: 3px">Product59 (3 restants)</p>
-          <p style="margin: 3px">Product51 (3 restants)</p>
+          <p style="margin: 3px" v-for="p in criticalStock">
+            {{ p.name }} {{ p.weight }} ({{ p.stock }} restants)
+          </p>
         </div>
       </div>
     </section>
     <section class="fidelity">
       <h3>Les meilleurs client de votre ferme</h3>
       <el-table :data="tableData" style="width: 100%">
-        <el-table-column prop="mail" label="mail" />
-        <el-table-column prop="order_number" label="Nombre de commandes" />
-        <el-table-column prop="average" label="Montant moyen" />
+        <el-table-column prop="email" label="mail" />
+        <el-table-column prop="orderCount" label="Nombre de commandes" />
+        <el-table-column prop="averageBasket" label="Montant moyen" />
       </el-table>
     </section>
   </div>

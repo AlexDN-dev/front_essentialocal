@@ -117,3 +117,19 @@ export const reportFarmReview = async (id: Number) => {
   });
   return response;
 };
+
+export const getStats = async (stat: number) => {
+  const token = Cookies.get("authToken");
+  if (token) {
+    const response = await $fetch(serverAddress + `/farm/stats/${stat}`, {
+      method: "GET",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${token}`,
+      },
+    });
+    return response;
+  } else {
+    return "Vous n'avez pas de ferme.";
+  }
+};
